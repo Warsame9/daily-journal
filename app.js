@@ -1,5 +1,7 @@
 //jshint esversion:6
 
+require('dotenv').config()
+const mongoose = require('mongoose');
 const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
@@ -16,12 +18,29 @@ app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static("public"));
 
-let posts = [];
+mongoose.connect(process.env.MONGODB_URL, {useNewUrlParser: true});
+
+//Schema for the post that contains the title and content
+const postSchema = {
+
+  title: String,
+ 
+  content: String
+ 
+ };
+
+ //mongoose model using the post schema
+ const Post = mongoose.model("Post", postSchema);
+
 
 app.get("/", function(req, res){
+  //to find all the posts in the posts collection and render that in the home.ejs file
+  Post.find({}, function(err, posts){
   res.render("home", {
     startingContent: homeStartingContent, 
-    posts: posts});
+    posts: posts
+    });
+  });
 });
 
 app.get("/about", function(req, res){
@@ -37,28 +56,33 @@ app.get("/compose", function(req, res){
 });
 
 app.post("/compose", function(req, res){
-  const post = {
+
+  //Post document for mongoose model
+  const post = new Post ({
     title: req.body.postTitle,
     content: req.body.postBody
-  };
-  posts.push(post);
-  res.redirect("/");
-
+ 
+  });
+  //redirect to the home page once save is complete with no errors
+  post.save(function(err){
+    if (!err){
+      res.redirect("/");
+    }
+  });
 });
 
-app.get("/posts/:postName", function(req,res){
-    const requestedTitle = _.lowerCase(req.params.postName);
+app.get("/posts/:postId", function(req, res){
+  //constant to store the postId parameter value
+  const requestedId = req.params.postId;
+  
+  //render posts title and content too post.ejs once match is found
+  Post.findById(requestedId, (err, post) => {
+    res.render('post', {
+      title: post.title,
+      content: post.content
+    })
+  });
 
-    posts.forEach(function(post){
-      const storedTitle = _.lowerCase(post.title);
-
-      if(storedTitle === requestedTitle){
-       res.render("post", {
-         title: post.title,
-         content: post.content
-       });
-      }
-    });
 });
 
 app.listen(3000, function() {
